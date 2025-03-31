@@ -1,5 +1,8 @@
 import ManiobraTrenes._
-val e1 = (List("a", "b", "c", "d"), Nil, Nil)
-val e2 = aplicarMovimiento(e1, Uno(2))
+val t1 = List("k", "l", "m", "n")
+val t2 = List("m", "l", "n", "k")
+val maniobra = definirManiobra(t1, t2)
+val estados = aplicarMovimientos((t1, Nil, Nil), maniobra)
 
-definirManiobra(List("a","b","c","d"), List("d","b","c","a"))
+// Resultado final:
+// estados.last = (List(d, b, c, a), Nil, Nil)

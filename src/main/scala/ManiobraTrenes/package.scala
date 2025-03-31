@@ -39,11 +39,56 @@ package object ManiobraTrenes {
   def aplicarMovimientos(e: Estado, movs: Maniobra): List[Estado] = {
     movs.foldLeft(List(e)) { (estados, movimiento) =>
       aplicarMovimiento(estados.head, movimiento) :: estados
-    }.reverse
+    }
+  }.reverse
+
+  def definirManiobra(t1: Tren, t2: Tren): Maniobra = {
+    require(t1.toSet == t2.toSet, "Los trenes deben contener los mismos vagones")
+
+    import scala.collection.mutable.Queue
+
+    case class Nodo(estado: Estado, movimientos: Maniobra, depth: Int)
+
+    def bfs(): Maniobra = {
+      val queue = Queue(Nodo((t1, Nil, Nil), Nil, 0))
+      val visited = scala.collection.mutable.Set[Estado]()
+      val maxDepth = t1.length * 10
+
+      while (queue.nonEmpty) {
+        val current = queue.dequeue()
+        val (principal, uno, dos) = current.estado
+        val movimientos = current.movimientos
+        val depth = current.depth
+
+        if (depth > maxDepth) throw new Exception("No se encontró solución en el límite de pasos")
+        if (visited.contains(current.estado)) ()
+        else {
+          visited += current.estado
+
+          if (principal == t2 && uno.isEmpty && dos.isEmpty) {
+            return movimientos.reverse
+          } else {
+            // Generar movimientos válidos
+            val posiblesMovimientos = List(
+              if (principal.nonEmpty) Some(Uno(principal.length)) else None,
+              if (principal.nonEmpty) Some(Dos(principal.length)) else None,
+              if (uno.nonEmpty) Some(Uno(-1)) else None,
+              if (dos.nonEmpty) Some(Dos(-1)) else None
+            ).flatten
+
+            // Añadir nuevos nodos a la cola
+            posiblesMovimientos.foreach { movimiento =>
+              val nuevoEstado = aplicarMovimiento(current.estado, movimiento)
+              if (!visited.contains(nuevoEstado)) {
+                queue.enqueue(Nodo(nuevoEstado, movimiento :: movimientos, depth + 1))
+              }
+            }
+          }
+        }
+      }
+      throw new Exception("No se encontró solución")
+    }
+
+    bfs()
   }
-
- /* def definirManiobra(t1: Tren, t2: Tren): Maniobra = {
-
-  }*/
 }
-
