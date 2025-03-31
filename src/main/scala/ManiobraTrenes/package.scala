@@ -45,50 +45,46 @@ package object ManiobraTrenes {
   def definirManiobra(t1: Tren, t2: Tren): Maniobra = {
     require(t1.toSet == t2.toSet, "Los trenes deben contener los mismos vagones")
 
-    import scala.collection.mutable.Queue
+    type Estado = (Tren, Tren, Tren)
+    type Nodo = (Estado, Maniobra)
 
-    case class Nodo(estado: Estado, movimientos: Maniobra, depth: Int)
+    @annotation.tailrec
+    def buscarSolucion(frontera: List[Nodo], visitados: Set[Estado]): Maniobra = frontera match {
+      case Nil =>
+        throw new Exception("No se encontró solución")
 
-    def bfs(): Maniobra = {
-      val queue = Queue(Nodo((t1, Nil, Nil), Nil, 0))
-      val visited = scala.collection.mutable.Set[Estado]()
-      val maxDepth = t1.length * 10
+      case ((principal, uno, dos), movimientos) :: tail =>
+        (principal, uno, dos) match {
+          case (`t2`, Nil, Nil) =>
+            movimientos.reverse
 
-      while (queue.nonEmpty) {
-        val current = queue.dequeue()
-        val (principal, uno, dos) = current.estado
-        val movimientos = current.movimientos
-        val depth = current.depth
+          case _ if visitados.contains((principal, uno, dos)) =>
+            buscarSolucion(tail, visitados)
 
-        if (depth > maxDepth) throw new Exception("No se encontró solución en el límite de pasos")
-        if (visited.contains(current.estado)) ()
-        else {
-          visited += current.estado
+          case _ =>
+            val nuevosNodos = generarMovimientosValidos((principal, uno, dos))
+              .map { case (estado, mov) => (estado, mov :: movimientos) }
 
-          if (principal == t2 && uno.isEmpty && dos.isEmpty) {
-            return movimientos.reverse
-          } else {
-            // Generar movimientos válidos
-            val posiblesMovimientos = List(
-              if (principal.nonEmpty) Some(Uno(principal.length)) else None,
-              if (principal.nonEmpty) Some(Dos(principal.length)) else None,
-              if (uno.nonEmpty) Some(Uno(-1)) else None,
-              if (dos.nonEmpty) Some(Dos(-1)) else None
-            ).flatten
-
-            // Añadir nuevos nodos a la cola
-            posiblesMovimientos.foreach { movimiento =>
-              val nuevoEstado = aplicarMovimiento(current.estado, movimiento)
-              if (!visited.contains(nuevoEstado)) {
-                queue.enqueue(Nodo(nuevoEstado, movimiento :: movimientos, depth + 1))
-              }
-            }
-          }
+            buscarSolucion(tail ++ nuevosNodos, visitados + ((principal, uno, dos)))
         }
-      }
-      throw new Exception("No se encontró solución")
     }
 
-    bfs()
+    def generarMovimientosValidos(estado: Estado): List[(Estado, Movimiento)] = estado match {
+      case (Nil, u, d) =>
+        List(
+          if (u.nonEmpty) Some((List(u.head), u.tail, d), Uno(-1)) else None,
+          if (d.nonEmpty) Some((List(d.head), u, d.tail), Dos(-1)) else None
+        ).flatten
+
+      case (p, u, d) =>
+        List(
+          Some((p.init, p.last :: u, d), Uno(1)),
+          if (u.nonEmpty) Some((p :+ u.head, u.tail, d), Uno(-1)) else None,
+          Some((p.init, u, p.last :: d), Dos(1)),
+          if (d.nonEmpty) Some((p :+ d.head, u, d.tail), Dos(-1)) else None
+        ).flatten
+    }
+
+    buscarSolucion(List(((t1, Nil, Nil), Nil)), Set.empty)
   }
 }
