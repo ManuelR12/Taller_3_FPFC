@@ -48,43 +48,45 @@ package object ManiobraTrenes {
     type Estado = (Tren, Tren, Tren)
     type Nodo = (Estado, Maniobra)
 
-    @annotation.tailrec
     def buscarSolucion(frontera: List[Nodo], visitados: Set[Estado]): Maniobra = frontera match {
       case Nil =>
         throw new Exception("No se encontró solución")
 
-      case ((principal, uno, dos), movimientos) :: tail =>
-        (principal, uno, dos) match {
-          case (`t2`, Nil, Nil) =>
-            movimientos.reverse
+      case ((`t2`, Nil, Nil), movimientos) :: _ =>
+        movimientos.reverse
 
-          case _ if visitados.contains((principal, uno, dos)) =>
-            buscarSolucion(tail, visitados)
+      case ((estado, movimientos) :: tail) if visitados.contains(estado) =>
+        buscarSolucion(tail, visitados)
 
-          case _ =>
-            val nuevosNodos = generarMovimientosValidos((principal, uno, dos))
-              .map { case (estado, mov) => (estado, mov :: movimientos) }
+      case (((p, u, d), movimientos) :: tail) =>
+        val nuevosNodos = generarMovimientosValidos(p, u, d)
+          .map { case ((np, nu, nd), mov) => ((np, nu, nd), mov :: movimientos) }
 
-            buscarSolucion(tail ++ nuevosNodos, visitados + ((principal, uno, dos)))
-        }
+        buscarSolucion(tail ++ nuevosNodos, visitados + ((p, u, d)))
     }
 
-    def generarMovimientosValidos(estado: Estado): List[(Estado, Movimiento)] = estado match {
+    def generarMovimientosValidos(p: Tren, u: Tren, d: Tren): List[(Estado, Movimiento)] = (p, u, d) match {
       case (Nil, u, d) =>
-        List(
-          if (u.nonEmpty) Some((List(u.head), u.tail, d), Uno(-1)) else None,
-          if (d.nonEmpty) Some((List(d.head), u, d.tail), Dos(-1)) else None
-        ).flatten
+        (u match {
+          case h :: t => List((List(h), t, d) -> Uno(-1))
+          case Nil => Nil
+        }) ::: (d match {
+          case h :: t => List((List(h), u, t) -> Dos(-1))
+          case Nil => Nil
+        })
 
       case (p, u, d) =>
         List(
-          Some((p.init, p.last :: u, d), Uno(1)),
-          if (u.nonEmpty) Some((p :+ u.head, u.tail, d), Uno(-1)) else None,
-          Some((p.init, u, p.last :: d), Dos(1)),
-          if (d.nonEmpty) Some((p :+ d.head, u, d.tail), Dos(-1)) else None
-        ).flatten
+          (p.init, p.last :: u, d) -> Uno(1),
+          (p.init, u, p.last :: d) -> Dos(1)
+        ) ::: (u match {
+          case h :: t => List((p :+ h, t, d) -> Uno(-1))
+          case Nil => Nil
+        }) ::: (d match {
+          case h :: t => List((p :+ h, u, t) -> Dos(-1))
+          case Nil => Nil
+        })
     }
-
     buscarSolucion(List(((t1, Nil, Nil), Nil)), Set.empty)
   }
 }
